@@ -1,0 +1,10 @@
+**/*.ico
+**/*.spec
+**/*.exe
+config.ini
+**/__pycache__/
+.idea
+__pycache__/
+*.txt
+!/requirements.txt
+venv
