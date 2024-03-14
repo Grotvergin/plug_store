@@ -21,20 +21,19 @@ def SendMessage(user: int, msg: Union[str, list[str]]) -> None:
         bot.send_message(user, '▪️Нет изменений', parse_mode='Markdown')
 
 
-def ShowCatalog(message: telebot.types.Message) -> None:
+def ShowButtons(message: telebot.types.Message, buttons: tuple, answer: str, handler: Callable = None) -> None:
     Stamp(f'User {message.from_user.id} requested {message.text}', 'i')
     markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    for category in PRODUCTS.keys():
-        markup.row(telebot.types.KeyboardButton(category))
-    bot.send_message(message.from_user.id, 'Выберите категорию:', reply_markup=markup)
+    for btn in buttons:
+        markup.row(telebot.types.KeyboardButton(btn))
+    bot.send_message(message.from_user.id, answer, reply_markup=markup)
 
 
-def ShowCategory(message: telebot.types.Message) -> None:
-    Stamp(f'User {message.from_user.id} requested {message.text}', 'i')
-    markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    for product in PRODUCTS[message.text]:
-        markup.row(telebot.types.KeyboardButton(product))
-    bot.send_message(message.from_user.id, 'Выберите товар:', reply_markup=markup)
+def SearchByID(message: telebot.types.Message) -> None:
+    if message.text in 'да':
+        SendMessage(message.from_user.id, 'Нашёл!')
+    else:
+        SendMessage(message.from_user.id, 'Такого нет(')
 
 
 @bot.message_handler(content_types=['text'])
@@ -42,11 +41,26 @@ def MessageAccept(message: telebot.types.Message) -> None:
     Stamp(f'User {message.from_user.id} requested {message.text}', 'i')
     if message.text == '/start':
         SendMessage(message.from_user.id, f'Привет, {message.from_user.first_name}!')
-        ShowCatalog(message)
-    elif message.text in PRODUCTS.keys():
-        ShowCategory(message)
+        ShowButtons(message, MENU_BTNS, 'Выберите действие:')
+    # Catalogue option
+    elif message.text == CATALOGUE_BTNS[0]:
+        SendMessage(message.from_user.id, 'Введите ID товара:')
+        bot.register_next_step_handler(message, SearchByID)
+    elif message.text == CATALOGUE_BTNS[-1]:
+        ShowButtons(message, MENU_BTNS, 'Выберите действие:')
+    elif message.text == MENU_BTNS[0]:
+        ShowButtons(message, CATALOGUE_BTNS, 'Выберите элемент каталога:')
+    # Contacts options
+    elif message.text == MENU_BTNS[1]:
+        SendMessage(message.from_user.id, 'Звоните Ромке 89152014847')
+        ShowButtons(message, MENU_BTNS, 'Выберите действие:')
+    # Operator connection
+    elif message.text == MENU_BTNS[2]:
+        SendMessage(message.from_user.id, 'Переключаю на оператора...')
+        ShowButtons(message, MENU_BTNS, 'Выберите действие:')
     else:
         SendMessage(message.from_user.id, 'Неизвестная опция...')
+        ShowButtons(message, MENU_BTNS, 'Выберите действие:')
 
 
 if __name__ == '__main__':
