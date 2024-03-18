@@ -36,6 +36,11 @@ def SearchByID(message: telebot.types.Message) -> None:
         SendMessage(message.from_user.id, 'Такого нет(')
 
 
+def ListContacts() -> str:
+    service = BuildService()
+
+
+
 @bot.message_handler(content_types=['text'])
 def MessageAccept(message: telebot.types.Message) -> None:
     Stamp(f'User {message.from_user.id} requested {message.text}', 'i')
@@ -52,7 +57,7 @@ def MessageAccept(message: telebot.types.Message) -> None:
         ShowButtons(message, CATALOGUE_BTNS, 'Выберите элемент каталога:')
     # Contacts options
     elif message.text == MENU_BTNS[1]:
-        SendMessage(message.from_user.id, 'Звоните Ромке 89152014847')
+        SendMessage(message.from_user.id, ListContacts())
         ShowButtons(message, MENU_BTNS, 'Выберите действие:')
     # Operator connection
     elif message.text == MENU_BTNS[2]:
