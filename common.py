@@ -69,21 +69,17 @@ def ParseConfig(direct: str = '') -> (ConfigParser, list):
     return config, sections
 
 
-def GetColumn(column: str, service: googleapiclient.discovery.Resource, sheet_name: str, sheet_id: str, skip_empty: bool = True, start_row: int = 2, end_row: int = MAX_ROW) -> list:
-    Stamp(f'Trying to get column {column} from sheet {sheet_name}', 'i')
+def GetSector(start: str, finish: str, service: googleapiclient.discovery.Resource, sheet_name: str, sheet_id: str) -> list:
+    Stamp(f'Trying to get sector from {start} to {finish} from sheet {sheet_name}', 'i')
     try:
-        res = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=f'{sheet_name}!{column}{start_row}:{column}{end_row}').execute().get('values', [])
+        res = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=f'{sheet_name}!{start}:{finish}').execute().get('values', [])
     except (TimeoutError, httplib2.error.ServerNotFoundError, gaierror, HttpError, SSLEOFError) as err:
-        Stamp(f'Status = {err} on getting column {column} from sheet {sheet_name}', 'e')
+        Stamp(f'Status = {err} on getting sector from {start} to {finish} from sheet {sheet_name}', 'e')
         Sleep(SLEEP_GOOGLE)
-        res = GetColumn(column, service, sheet_name, sheet_id, skip_empty, start_row, end_row)
+        res = GetSector(start, finish, service, sheet_name, sheet_id)
     else:
         if not res:
-            Stamp(f'No elements in column {column} sheet {sheet_name} found', 'w')
+            Stamp(f'No elements in sector from {start} to {finish} sheet {sheet_name} found', 'w')
         else:
-            Stamp(f'Found {len(res)} elements from column {column} sheet {sheet_name}', 's')
-            if skip_empty:
-                res = [item for sublist in res for item in sublist]
-            else:
-                res = [None if not sublist else item for sublist in res for item in (sublist if sublist else [None])]
+            Stamp(f'Found {len(res)} rows from sector from {start} to {finish} sheet {sheet_name}', 's')
     return res

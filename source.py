@@ -2,10 +2,9 @@ from common import *
 
 config, _ = ParseConfig()
 bot = telebot.TeleBot(config['DEFAULT']['Token'])
+SHEET_ID = config['DEFAULT']['SheetID']
+GROUP_ID = config['DEFAULT']['GroupID']
 MENU_BTNS = ('Каталог', 'Контакты', 'Связь с оператором')
-CATALOGUE_BTNS = ('Поиск товаров', 'Пробковый пол замковый', 'Пробковый пол клеевой', 'Настенная пробка', 'Пробковая подложка', 'Сопутствующий товар', 'В меню')
-PRODUCTS = {'Пробковый пол замковый': ('Пробка хуебка', 'Вторая пробка', 'Вообще разъеб а не пробка'),
-            'Пробковый пол клеевой': ('Вторая пробка', 'Вообще разъеб а не пробка'),
-            'Настенная пробка': None,
-            'Пробковая подложка': None,
-            'Сопутствующий товар': None}
+OPERATE_BTNS = ('Поиск товаров', 'В меню')
+CONTACTS_SHEET_NAME = 'Contacts'
+PRODUCTS_SHEET_NAME = 'Products'
