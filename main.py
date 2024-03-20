@@ -77,19 +77,39 @@ def ChosenCategory(message: telebot.types.Message, categories_available: tuple) 
         MessageAccept(message)
 
 
+def DownloadImage(row: int) -> None:
+    if os.path.isfile(f'{row}.png'):
+        Stamp(f'File {row}.png exists', 'i')
+        return
+    file_id = '1xQy93hKnSca8h5xfC3DDrxAgIU-T5wwl'
+    # Запрос на загрузку файла
+    request = driver.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+        Stamp(f'Downloading file {row}.png {int(status.progress() * 100)}%', 'w')
+    with open(f'{row}.png', 'wb') as f:
+        f.write(fh.getvalue())
+    Stamp(f'File {row}.png was downloaded', 's')
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('S'))
 def ShowInfoGood(message):
     keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
     for btn in BASKET_BTNS.keys():
         keyboard.add(telebot.types.InlineKeyboardButton(btn, callback_data=BASKET_BTNS[btn] + message.data[1:]))
-    bot.send_message(message.from_user.id, ShowInfo(int(message.data[1:])), parse_mode='Markdown', reply_markup=keyboard)
+    DownloadImage(int(message.data[1:]))
+    with open(f'{message.data[1:]}.png', 'rb') as photo:
+        bot.send_photo(message.from_user.id, photo, caption=ShowInfo(int(message.data[1:])), reply_markup=keyboard, parse_mode='Markdown')
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('F'))
 def FastOrder(message):
     bot.send_message(message.from_user.id, 'Информация о быстром заказе передана оператору. С вами вскоре свяжутся!')
     bot.send_message(GROUP_ID, f'Быстрый заказ\n'
-                               f'Название: {message.data[1:]}'
+                               f'Название: {message.data[1:]}\n'
                                f'ID: {message.from_user.id}\n'
                                f'First name: {message.from_user.first_name}\n'
                                f'Second name: {message.from_user.last_name}\n'
@@ -148,5 +168,4 @@ def MessageAccept(message: telebot.types.Message) -> None:
 
 
 if __name__ == '__main__':
-    service = BuildService()
     Main()

@@ -15,25 +15,27 @@ import time
 import random
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import io
+from googleapiclient.http import MediaIoBaseDownload
 
 
 SLEEP_GOOGLE = 20
 MAX_ROW = 1000
 init()
 random.seed()
-CREDS = service_account.Credentials.from_service_account_file('keys.json', scopes=['https://www.googleapis.com/auth/spreadsheets'])
+CREDS = service_account.Credentials.from_service_account_file('keys.json', scopes=['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.readonly'])
 
 
-def BuildService() -> googleapiclient.discovery.Resource:
-    Stamp(f'Trying to build service', 'i')
+def BuildService(serv_type: str, version: str) -> googleapiclient.discovery.Resource:
+    Stamp(f'Trying to build {serv_type} service', 'i')
     try:
-        service = build('sheets', 'v4', credentials=CREDS)
+        service = build(f'{serv_type}', f'{version}', credentials=CREDS)
     except (HttpError, TimeoutError, httplib2.error.ServerNotFoundError, gaierror, SSLEOFError) as err:
-        Stamp(f'Status = {err} on building service', 'e')
+        Stamp(f'Status = {err} on building {serv_type} service', 'e')
         Sleep(SLEEP_GOOGLE)
         BuildService()
     else:
-        Stamp('Built service successfully', 's')
+        Stamp(f'Built {serv_type} service successfully', 's')
         return service
 
 

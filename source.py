@@ -9,3 +9,5 @@ OPERATE_BTNS = ('Поиск товаров', 'В меню', 'Назад к ка�
 BASKET_BTNS = {'Полное описание': 'D', 'Быстрый заказ': 'F', 'Добавить в корзину': 'B'}
 CONTACTS_SHEET_NAME = 'Contacts'
 PRODUCTS_SHEET_NAME = 'Products'
+service = BuildService('sheets', 'v4')
+driver = BuildService('drive', 'v3')
