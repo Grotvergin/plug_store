@@ -19,7 +19,7 @@ def ShowButtons(message: telebot.types.Message, buttons: tuple, answer: str) -> 
 
 
 def ShowInfo(row: int) -> str:
-    info = GetSector(f'A{row}', f'M{row}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0]
+    info = GetSector(f'A{row}', f'L{row}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0]
     msg = f'*Модель*: {info[0]}\n' \
           f'*Описание*: {info[2]}\n' \
           f'*Остаток*: {info[5]} штук\n' \
@@ -27,18 +27,20 @@ def ShowInfo(row: int) -> str:
           f'*М^2 в упаковке*: {info[7]}\n' \
           f'*Защитный слой*: {info[8]}\n' \
           f'*Класс износостойкости*: {info[9]}\n' \
-          f'*Производитель*: {info[10]}\n' \
-          f'*Артикул*: {info[11]}\n'
+          f'*Производитель*: {info[10]}\n'
     return msg
 
 
 def SearchByID(message: telebot.types.Message) -> None:
-    ids = GetSector('L2', 'L100', service, PRODUCTS_SHEET_NAME, SHEET_ID)
+    ids = GetSector('A2', 'A1000', service, PRODUCTS_SHEET_NAME, SHEET_ID)
     ids = [item for sublist in ids for item in sublist]
-    if message.text in ids:
-        ShowButtons(message, OPERATE_BTNS, f'Найден товар по ID {message.text}')
-        message.data = 'S' + str(ids.index(message.text) + 2)
-        ShowInfoGood(message)
+    search_text = message.text.lower()
+    matching_ids = [id for id in ids if search_text in id.lower()]
+    if matching_ids:
+        ShowButtons(message, OPERATE_BTNS, f'Найдены {len(matching_ids)} товар(ов) по ID {message.text}')
+        for id in matching_ids:
+            message.data = 'S' + str(ids.index(id) + 2)
+            ShowInfoGood(message)
     else:
         bot.send_message(message.from_user.id, f'Не найдено товара по ID {message.text}')
         ShowButtons(message, MENU_BTNS, 'Выберите действие:')
@@ -53,7 +55,7 @@ def ListContacts() -> str:
 
 
 def ShowCategories() -> tuple:
-    categories = GetSector('B2', 'B100', service, PRODUCTS_SHEET_NAME, SHEET_ID)
+    categories = GetSector('B2', 'B1000', service, PRODUCTS_SHEET_NAME, SHEET_ID)
     categories = [item for sublist in categories for item in sublist]
     categories = list(set(categories))
     categories.insert(0, OPERATE_BTNS[0])
@@ -64,7 +66,7 @@ def ShowCategories() -> tuple:
 def ChosenCategory(message: telebot.types.Message, categories_available: tuple) -> None:
     if message.text in categories_available[1:-1]:
         ShowButtons(message, OPERATE_BTNS, f'Выбрана категория "{message.text}"')
-        info = GetSector('A2', 'B100', service, PRODUCTS_SHEET_NAME, SHEET_ID)
+        info = GetSector('A2', 'B1000', service, PRODUCTS_SHEET_NAME, SHEET_ID)
         appropriate_goods = {}
         for i, row in enumerate(info):
             if row[1] == message.text:
@@ -82,7 +84,6 @@ def DownloadImage(row: int) -> None:
         Stamp(f'File {row}.png exists', 'i')
         return
     file_id = '1xQy93hKnSca8h5xfC3DDrxAgIU-T5wwl'
-    # Запрос на загрузку файла
     request = driver.files().get_media(fileId=file_id)
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
@@ -95,41 +96,47 @@ def DownloadImage(row: int) -> None:
     Stamp(f'File {row}.png was downloaded', 's')
 
 
+def OrderQuantity(message: telebot.types.Message, index_good: str, type_order: str):
+    if message.text.isdigit():
+        name_good = GetSector(f'A{index_good}', f'A{index_good}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0][0]
+        ShowButtons(message, OPERATE_BTNS, f'Вы заказали {message.text} {name_good}. С вами вскоре свяжутся!')
+        bot.send_message(GROUP_ID, f'{type_order}\n'
+                                   f'Название: {name_good}\n'
+                                   f'Количество: {message.text}\n'
+                                   f'ID: {message.from_user.id}\n'
+                                   f'First name: {message.from_user.first_name}\n'
+                                   f'Second name: {message.from_user.last_name}\n'
+                                   f'Username: {message.from_user.username}\n')
+    else:
+        bot.send_message(message.from_user.id, 'Количество товаров не распознано, попробуйте ещё раз:')
+        FastOrder(message, index_good, type_order)
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('S'))
-def ShowInfoGood(message):
+def ShowInfoGood(call: telebot.types.CallbackQuery):
     keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
     for btn in BASKET_BTNS.keys():
-        keyboard.add(telebot.types.InlineKeyboardButton(btn, callback_data=BASKET_BTNS[btn] + message.data[1:]))
-    DownloadImage(int(message.data[1:]))
-    with open(f'{message.data[1:]}.png', 'rb') as photo:
-        bot.send_photo(message.from_user.id, photo, caption=ShowInfo(int(message.data[1:])), reply_markup=keyboard, parse_mode='Markdown')
+        keyboard.add(telebot.types.InlineKeyboardButton(btn, callback_data=BASKET_BTNS[btn] + call.data[1:]))
+    DownloadImage(int(call.data[1:]))
+    with open(f'{call.data[1:]}.png', 'rb') as photo:
+        bot.send_photo(call.from_user.id, photo, caption=ShowInfo(int(call.data[1:])), reply_markup=keyboard, parse_mode='Markdown')
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('F'))
-def FastOrder(message):
-    bot.send_message(message.from_user.id, 'Информация о быстром заказе передана оператору. С вами вскоре свяжутся!')
-    bot.send_message(GROUP_ID, f'Быстрый заказ\n'
-                               f'Название: {message.data[1:]}\n'
-                               f'ID: {message.from_user.id}\n'
-                               f'First name: {message.from_user.first_name}\n'
-                               f'Second name: {message.from_user.last_name}\n'
-                               f'Username: {message.from_user.username}\n')
+def FastOrder(call: telebot.types.CallbackQuery):
+    bot.send_message(call.from_user.id, 'Введите количество товаров, которое желаете заказать:')
+    bot.register_next_step_handler(call.message, OrderQuantity, call.data[1:], 'Быстрый заказ')
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('B'))
-def BasketAdd(message):
-    bot.send_message(message.from_user.id, 'Товар добавлен в корзину')
-    bot.send_message(GROUP_ID, f'Добавление в корзину\n'
-                               f'Название: {message.data[1:]}'
-                               f'ID: {message.from_user.id}\n'
-                               f'First name: {message.from_user.first_name}\n'
-                               f'Second name: {message.from_user.last_name}\n'
-                               f'Username: {message.from_user.username}\n')
+def BasketAdd(call: telebot.types.CallbackQuery):
+    bot.send_message(call.from_user.id, 'Введите количество товаров, которое желаете заказать:')
+    bot.register_next_step_handler(call.message, OrderQuantity, call.data[1:], 'Добавление в корзину')
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('D'))
-def ShowFullDescription(message):
-    bot.send_message(message.from_user.id, 'Тут должно быть полное описание...')
+def ShowFullDescription(call: telebot.types.CallbackQuery):
+    bot.send_message(call.from_user.id, 'Тут должно быть полное описание...')
 
 
 @bot.message_handler(content_types=['text'])
@@ -138,7 +145,6 @@ def MessageAccept(message: telebot.types.Message) -> None:
     if message.text == '/start':
         bot.send_message(message.from_user.id, f'Привет, {message.from_user.first_name}!')
         ShowButtons(message, MENU_BTNS, 'Выберите действие:')
-    # Catalogue option
     elif message.text == OPERATE_BTNS[0]:
         bot.send_message(message.from_user.id, 'Введите ID товара:')
         bot.register_next_step_handler(message, SearchByID)
@@ -148,19 +154,16 @@ def MessageAccept(message: telebot.types.Message) -> None:
         categories = ShowCategories()
         ShowButtons(message, categories, 'Выберите элемент каталога:')
         bot.register_next_step_handler(message, ChosenCategory, categories)
-    # Contacts options
     elif message.text == MENU_BTNS[1]:
         bot.send_message(message.from_user.id, ListContacts(), parse_mode='Markdown')
         ShowButtons(message, MENU_BTNS, 'Выберите действие:')
-    # Operator connection
     elif message.text == MENU_BTNS[2]:
         bot.send_message(message.from_user.id, 'Сведения переданы оператору. С Вами свяжутся в ближайшее время!')
         bot.send_message(GROUP_ID, f'Связь с оператором\n'
                                    f'ID: {message.from_user.id}\n'
                                    f'First name: {message.from_user.first_name}\n'
                                    f'Second name: {message.from_user.last_name}\n'
-                                   f'Username: {message.from_user.username}\n'
-                        )
+                                   f'Username: {message.from_user.username}\n')
         ShowButtons(message, MENU_BTNS, 'Выберите действие:')
     else:
         bot.send_message(message.from_user.id, 'Неизвестная опция...')
