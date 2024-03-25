@@ -9,3 +9,4 @@ __pycache__/
 !/requirements.txt
 venv
 keys.json
+images/

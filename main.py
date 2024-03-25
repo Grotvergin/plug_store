@@ -6,12 +6,11 @@ def Main() -> None:
         try:
             bot.polling(none_stop=True, interval=1)
         except Exception as e:
-            Stamp(f'Error {e} happened', 'e')
+            Stamp(f'{e}', 'e')
             Stamp(traceback.format_exc(), 'e')
 
 
 def ShowButtons(message: telebot.types.Message, buttons: tuple, answer: str) -> None:
-    Stamp(f'User {message.from_user.id} requested {message.text}', 'i')
     markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
     for btn in buttons:
         markup.row(telebot.types.KeyboardButton(btn))
@@ -35,11 +34,11 @@ def SearchByID(message: telebot.types.Message) -> None:
     ids = GetSector('A2', 'A1000', service, PRODUCTS_SHEET_NAME, SHEET_ID)
     ids = [item for sublist in ids for item in sublist]
     search_text = message.text.lower()
-    matching_ids = [id for id in ids if search_text in id.lower()]
+    matching_ids = [iden for iden in ids if search_text in iden.lower()]
     if matching_ids:
         ShowButtons(message, OPERATE_BTNS, f'Найдены {len(matching_ids)} товар(ов) по ID {message.text}')
-        for id in matching_ids:
-            message.data = 'S' + str(ids.index(id) + 2)
+        for iden in matching_ids:
+            message.data = 'S' + str(ids.index(iden) + 2)
             ShowInfoGood(message)
     else:
         bot.send_message(message.from_user.id, f'Не найдено товара по ID {message.text}')
@@ -80,10 +79,13 @@ def ChosenCategory(message: telebot.types.Message, categories_available: tuple) 
 
 
 def DownloadImage(row: int) -> None:
-    if os.path.isfile(f'{row}.png'):
+    file_path = os.path.join('images', f'{row}.png')
+    if os.path.isfile(file_path):
         Stamp(f'File {row}.png exists', 'i')
         return
-    file_id = '1xQy93hKnSca8h5xfC3DDrxAgIU-T5wwl'
+    pattern = r'https://drive\.google\.com/file/d/([^/]+)/view\?usp=drive_link'
+    raw_link = GetSector(f'E{row}', f'E{row}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0][0]
+    file_id = re.search(pattern, raw_link).group(1)
     request = driver.files().get_media(fileId=file_id)
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
@@ -91,7 +93,7 @@ def DownloadImage(row: int) -> None:
     while done is False:
         status, done = downloader.next_chunk()
         Stamp(f'Downloading file {row}.png {int(status.progress() * 100)}%', 'w')
-    with open(f'{row}.png', 'wb') as f:
+    with open(file_path, 'wb') as f:
         f.write(fh.getvalue())
     Stamp(f'File {row}.png was downloaded', 's')
 
@@ -113,12 +115,13 @@ def OrderQuantity(message: telebot.types.Message, index_good: str, type_order: s
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('S'))
-def ShowInfoGood(call: telebot.types.CallbackQuery):
+def ShowInfoGood(call: telebot.types.CallbackQuery | telebot.types.Message):
     keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
     for btn in BASKET_BTNS.keys():
         keyboard.add(telebot.types.InlineKeyboardButton(btn, callback_data=BASKET_BTNS[btn] + call.data[1:]))
     DownloadImage(int(call.data[1:]))
-    with open(f'{call.data[1:]}.png', 'rb') as photo:
+    file_path = os.path.join('images', f'{int(call.data[1:])}.png')
+    with open(file_path, 'rb') as photo:
         bot.send_photo(call.from_user.id, photo, caption=ShowInfo(int(call.data[1:])), reply_markup=keyboard, parse_mode='Markdown')
 
 
@@ -136,7 +139,8 @@ def BasketAdd(call: telebot.types.CallbackQuery):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('D'))
 def ShowFullDescription(call: telebot.types.CallbackQuery):
-    bot.send_message(call.from_user.id, 'Тут должно быть полное описание...')
+    description = GetSector(f'D{call.data[1:]}', f'D{call.data[1:]}', service, PRODUCTS_SHEET_NAME, SHEET_ID)
+    bot.send_message(call.from_user.id, description)
 
 
 @bot.message_handler(content_types=['text'])
