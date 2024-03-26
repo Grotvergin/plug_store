@@ -1,7 +1,6 @@
 import telebot
 from configparser import ConfigParser
 from pathlib import Path
-import os
 from socket import gaierror
 from ssl import SSLEOFError
 from datetime import datetime, timedelta, date
@@ -15,9 +14,9 @@ import time
 import random
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import io
 from googleapiclient.http import MediaIoBaseDownload
 import re
+from telebot.types import InputMediaPhoto
 
 
 SLEEP_GOOGLE = 20

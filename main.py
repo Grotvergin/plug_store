@@ -1,3 +1,5 @@
+import telebot.types
+
 from source import *
 
 
@@ -21,9 +23,9 @@ def ShowInfo(row: int) -> str:
     info = GetSector(f'A{row}', f'L{row}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0]
     msg = f'*Модель*: {info[0]}\n' \
           f'*Описание*: {info[2]}\n' \
-          f'*Остаток*: {info[5]} штук\n' \
-          f'*Цена*: {info[6]} рублей\n' \
-          f'*М^2 в упаковке*: {info[7]}\n' \
+          f'*Остаток*: {round(float(info[5].replace(',', '.')))} уп.\n' \
+          f'*Цена за уп.*: {info[6]} рублей\n' \
+          f'*Кол-во м.кв. в упаковке*: {info[7]}\n' \
           f'*Защитный слой*: {info[8]}\n' \
           f'*Класс износостойкости*: {info[9]}\n' \
           f'*Производитель*: {info[10]}\n'
@@ -78,26 +80,6 @@ def ChosenCategory(message: telebot.types.Message, categories_available: tuple) 
         MessageAccept(message)
 
 
-def DownloadImage(row: int) -> None:
-    file_path = os.path.join('images', f'{row}.png')
-    if os.path.isfile(file_path):
-        Stamp(f'File {row}.png exists', 'i')
-        return
-    pattern = r'https://drive\.google\.com/file/d/([^/]+)/view\?usp=drive_link'
-    raw_link = GetSector(f'E{row}', f'E{row}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0][0]
-    file_id = re.search(pattern, raw_link).group(1)
-    request = driver.files().get_media(fileId=file_id)
-    fh = io.BytesIO()
-    downloader = MediaIoBaseDownload(fh, request)
-    done = False
-    while done is False:
-        status, done = downloader.next_chunk()
-        Stamp(f'Downloading file {row}.png {int(status.progress() * 100)}%', 'w')
-    with open(file_path, 'wb') as f:
-        f.write(fh.getvalue())
-    Stamp(f'File {row}.png was downloaded', 's')
-
-
 def OrderQuantity(message: telebot.types.Message, index_good: str, type_order: str):
     if message.text.isdigit():
         name_good = GetSector(f'A{index_good}', f'A{index_good}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0][0]
@@ -108,7 +90,7 @@ def OrderQuantity(message: telebot.types.Message, index_good: str, type_order: s
                                    f'ID: {message.from_user.id}\n'
                                    f'First name: {message.from_user.first_name}\n'
                                    f'Second name: {message.from_user.last_name}\n'
-                                   f'Username: {message.from_user.username}\n')
+                                   f'Username: @{message.from_user.username}\n')
     else:
         bot.send_message(message.from_user.id, 'Количество товаров не распознано, попробуйте ещё раз:')
         FastOrder(message, index_good, type_order)
@@ -116,13 +98,25 @@ def OrderQuantity(message: telebot.types.Message, index_good: str, type_order: s
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('S'))
 def ShowInfoGood(call: telebot.types.CallbackQuery | telebot.types.Message):
+    pattern = r'https://drive\.google\.com/file/d/([^/]+)/view\?usp=drive_link'
+    links = GetSector(f'E{call.data[1:]}', f'M{call.data[1:]}', service, PRODUCTS_SHEET_NAME, SHEET_ID)[0]
+    photo_links = links[0].split(',')
+    video_link = links[-1]
     keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
     for btn in BASKET_BTNS.keys():
         keyboard.add(telebot.types.InlineKeyboardButton(btn, callback_data=BASKET_BTNS[btn] + call.data[1:]))
-    DownloadImage(int(call.data[1:]))
-    file_path = os.path.join('images', f'{int(call.data[1:])}.png')
-    with open(file_path, 'rb') as photo:
-        bot.send_photo(call.from_user.id, photo, caption=ShowInfo(int(call.data[1:])), reply_markup=keyboard, parse_mode='Markdown')
+    keyboard.add(telebot.types.InlineKeyboardButton('Смотреть видео', url=video_link))
+    images = []
+    for link in photo_links:
+        link = 'https://drive.google.com/uc?export=view&id=' + re.search(pattern, link).group(1)
+        images.append(InputMediaPhoto(link))
+    bot.send_media_group(call.from_user.id, media=images)
+    bot.send_message(call.from_user.id, ShowInfo(int(call.data[1:])), parse_mode='Markdown', reply_markup=keyboard)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('V'))
+def ShowVideo(call: telebot.types.CallbackQuery):
+    video_link = GetSector(f'L{call.data[1:]}', f'L{call.data[1:]}', service, PRODUCTS_SHEET_NAME, SHEET_ID)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('F'))
@@ -167,7 +161,7 @@ def MessageAccept(message: telebot.types.Message) -> None:
                                    f'ID: {message.from_user.id}\n'
                                    f'First name: {message.from_user.first_name}\n'
                                    f'Second name: {message.from_user.last_name}\n'
-                                   f'Username: {message.from_user.username}\n')
+                                   f'Username: @{message.from_user.username}\n')
         ShowButtons(message, MENU_BTNS, 'Выберите действие:')
     else:
         bot.send_message(message.from_user.id, 'Неизвестная опция...')
